@@ -1,0 +1,378 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local speed = 16
+local defaultSpeed = 16
+local guiVisible = true
+local currentKeybind = Enum.KeyCode.V
+local isChangingKeybind = false
+
+local mt = getrawmetatable and getrawmetatable(game)
+if mt and setreadonly then
+    setreadonly(mt, false)
+    local oldIndex = mt.__index
+    local oldNewIndex = mt.__newindex
+    local oldNamecall = mt.__namecall
+
+    mt.__index = newcclosure(function(self, key)
+        if not checkcaller() then
+            if self:IsA("Humanoid") and (key == "WalkSpeed" or key == "walkSpeed") then
+                return defaultSpeed
+            end
+        end
+        return oldIndex(self, key)
+    end)
+
+    mt.__newindex = newcclosure(function(self, key, value)
+        if not checkcaller() then
+            if self:IsA("Humanoid") and (key == "WalkSpeed" or key == "walkSpeed") then
+                return
+            end
+        end
+        oldNewIndex(self, key, value)
+    end)
+
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if not checkcaller() and (method == "Kick" or method == "kick") and self == player then
+            return
+        end
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt, true)
+end
+
+if hookmetamethod then
+    local oldInstanceKick
+    oldInstanceKick = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        if not checkcaller() and (method == "Kick" or method == "kick") and self == player then
+            return
+        end
+        return oldInstanceKick(self, ...)
+    end)
+end
+
+local Theme = {
+    Background = Color3.fromRGB(15, 15, 20),
+    Header = Color3.fromRGB(22, 22, 30),
+    Card = Color3.fromRGB(28, 28, 38),
+    Text = Color3.fromRGB(255, 255, 255),
+    TextDim = Color3.fromRGB(150, 150, 160),
+    StatusGreen = Color3.fromRGB(0, 255, 136),
+    RedNotice = Color3.fromRGB(255, 75, 75)
+}
+
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Name = "FierceClient_V2"
+gui.Parent = (gethui and gethui()) or CoreGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 240, 0, 360)
+frame.Position = UDim2.new(0.5, -120, 0.5, -180)
+frame.BackgroundColor3 = Theme.Background
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.ClipsDescendants = true
+frame.Parent = gui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = frame
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Thickness = 2
+uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+uiStroke.Parent = frame
+
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://9114223190"
+sound.Volume = 0.5
+sound.Parent = gui
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Theme.Header
+header.BorderSizePixel = 0
+header.Parent = frame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 10)
+headerCorner.Parent = header
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, 0, 1, 0)
+label.Text = "Zack Speed Changer v2"
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.Font = Enum.Font.GothamBold
+label.TextSize = 16
+label.BackgroundTransparency = 1
+label.Parent = header
+
+local container = Instance.new("Frame")
+container.Size = UDim2.new(1, -30, 1, -55)
+container.Position = UDim2.new(0, 15, 0, 48)
+container.BackgroundTransparency = 1
+container.Parent = frame
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 8)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = container
+
+local function createStyledBox(placeholder, order)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1, 0, 0, 32)
+    box.Text = ""
+    box.PlaceholderText = placeholder
+    box.BackgroundColor3 = Theme.Card
+    box.TextColor3 = Theme.Text
+    box.PlaceholderColor3 = Theme.TextDim
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 13
+    box.BorderSizePixel = 0
+    box.LayoutOrder = order
+    box.Parent = container
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = box
+    
+    return box
+end
+
+local function createStyledButton(text, order)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 32)
+    btn.Text = text
+    btn.BackgroundColor3 = Theme.Card
+    btn.TextColor3 = Theme.Text
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 13
+    btn.BorderSizePixel = 0
+    btn.LayoutOrder = order
+    btn.Parent = container
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+    
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.Header}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.Card}):Play()
+    end)
+    
+    return btn
+end
+
+local textBox = createStyledBox("Enter Speed...", 1)
+local button = createStyledButton("Reset to Default", 2)
+local bindButton = createStyledButton("Keybind: [ V ]", 3)
+
+local statusPanel = Instance.new("Frame")
+statusPanel.Size = UDim2.new(1, 0, 0, 32)
+statusPanel.BackgroundColor3 = Theme.Card
+statusPanel.BorderSizePixel = 0
+statusPanel.LayoutOrder = 4
+statusPanel.Parent = container
+
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 6)
+statusCorner.Parent = statusPanel
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 1, 0)
+statusLabel.Text = "Bypass Protection: ACTIVE"
+statusLabel.TextColor3 = Theme.StatusGreen
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 11
+statusLabel.BackgroundTransparency = 1
+statusLabel.Parent = statusPanel
+
+local updateLog = Instance.new("TextLabel")
+updateLog.Size = UDim2.new(1, 0, 0, 120)
+updateLog.BackgroundColor3 = Theme.Card
+updateLog.TextColor3 = Theme.TextDim
+updateLog.Font = Enum.Font.Gotham
+updateLog.TextSize = 10
+updateLog.TextXAlignment = Enum.TextXAlignment.Left
+updateLog.TextYAlignment = Enum.TextYAlignment.Top
+updateLog.TextWrapped = true
+updateLog.BorderSizePixel = 0
+updateLog.LayoutOrder = 5
+updateLog.Parent = container
+
+local updateLogCorner = Instance.new("UICorner")
+updateLogCorner.CornerRadius = UDim.new(0, 6)
+updateLogCorner.Parent = updateLog
+
+local updateLogPadding = Instance.new("UIPadding")
+updateLogPadding.PaddingTop = UDim.new(0, 6)
+updateLogPadding.PaddingBottom = UDim.new(0, 6)
+updateLogPadding.PaddingLeft = UDim.new(0, 8)
+updateLogPadding.PaddingRight = UDim.new(0, 8)
+updateLogPadding.Parent = updateLog
+
+updateLog.Text = 'Updates:\n1. Added Anti Kick and Anti Cheat.\n2. Hide button is draggable now.\n3. Slight adjustments of UI and Fixed hide animation.\n\nNotice: The anti cheat and kick wont work on some games.'
+
+-- Color the notice text part red dynamically or via RichText
+updateLog.RichText = true
+updateLog.Text = 'Updates:\n1. Added Anti Kick and Anti Cheat.\n2. Hide button is draggable now.\n3. Slight adjustments of UI and Fixed hide animation.\n\n<font color="#FF4B4B">Notice: The anti cheat and kick wont work on some games.</font>'
+
+-- Draggable Main Frame
+local dragging, dragStart, startPos
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        frame.Position = targetPos
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- Mobile Draggable Hide Button
+local hideButton = Instance.new("TextButton")
+hideButton.Size = UDim2.new(0, 60, 0, 60)
+hideButton.Position = UDim2.new(0.9, -60, 0.1, 0)
+hideButton.BackgroundColor3 = Theme.Header
+hideButton.TextColor3 = Theme.Text
+hideButton.Font = Enum.Font.GothamBold
+hideButton.TextSize = 12
+hideButton.Text = "Hide"
+hideButton.BorderSizePixel = 0
+hideButton.Active = true
+hideButton.Parent = gui
+
+local hideCorner = Instance.new("UICorner")
+hideCorner.CornerRadius = UDim.new(0, 25)
+hideCorner.Parent = hideButton
+
+local hideStroke = Instance.new("UIStroke")
+hideStroke.Thickness = 1
+hideStroke.Color = Theme.StatusGreen
+hideStroke.Parent = hideButton
+
+local function toggleGuiVisibility()
+    guiVisible = not guiVisible
+    sound:Play()
+    
+    local targetSize = guiVisible and UDim2.new(0, 240, 0, 360) or UDim2.new(0, 0, 0, 0)
+    
+    if guiVisible then 
+        gui.Enabled = true 
+    end
+    
+    local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(frame, tweenInfo, {
+        Size = targetSize
+    })
+    
+    tween:Play()
+    tween.Completed:Connect(function()
+        if not guiVisible then 
+            -- Keep ScreenGui enabled so the floating hide button stays visible
+        end
+    end)
+end
+
+hideButton.MouseButton1Click:Connect(function()
+    toggleGuiVisibility()
+end)
+
+-- Make Hide Button Draggable for Mobile Users
+local hideDragging, hideDragStart, hideStartPos
+hideButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        hideDragging = true
+        hideDragStart = input.Position
+        hideStartPos = hideButton.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if hideDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - hideDragStart
+        hideButton.Position = UDim2.new(hideStartPos.X.Scale, hideStartPos.X.Offset + delta.X, hideStartPos.Y.Scale, hideStartPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        hideDragging = false
+    end
+end)
+
+local function setSpeed(newSpeed)
+    speed = newSpeed
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid.WalkSpeed = speed
+    end
+end
+
+textBox.FocusLost:Connect(function(enterPressed)
+    local newSpeed = tonumber(textBox.Text)
+    if newSpeed then 
+        setSpeed(newSpeed) 
+    end
+    textBox.Text = ""
+end)
+
+button.MouseButton1Click:Connect(function()
+    setSpeed(defaultSpeed)
+    textBox.Text = ""
+end)
+
+RunService.Stepped:Connect(function()
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.WalkSpeed ~= speed then
+            humanoid.WalkSpeed = speed
+        end
+    end
+    
+    local hue = (tick() % 4) / 4
+    uiStroke.Color = Color3.fromHSV(hue, 1, 1)
+end)
+
+bindButton.MouseButton1Click:Connect(function()
+    isChangingKeybind = true
+    bindButton.Text = "Press any key..."
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if isChangingKeybind and not gameProcessed then
+        if input.KeyCode ~= Enum.KeyCode.Unknown then
+            currentKeybind = input.KeyCode
+            bindButton.Text = "Keybind: [ " .. string.sub(tostring(currentKeybind), 14) .. " ]"
+            isChangingKeybind = false
+        end
+        return
+    end
+
+    if input.KeyCode == currentKeybind and not gameProcessed then
+        toggleGuiVisibility()
+    end
+end)
